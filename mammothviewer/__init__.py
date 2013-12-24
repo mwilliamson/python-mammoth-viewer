@@ -1,3 +1,5 @@
+import collections
+
 import gtk 
 import glib
 import mammoth
@@ -20,19 +22,83 @@ def start():
         gui.close()
 
 
+def view_model(attr_names):
+    return ViewModel(attr_names)
+
+
+class ViewModel(object):
+    def __init__(self, attr_names):
+        self._attrs = dict((name, None) for name in attr_names)
+        self._listeners = collections.defaultdict(lambda: [])
+
+    def __setattr__(self, key, value):
+        if key.startswith("_"):
+            object.__setattr__(self, key, value)
+        else:
+            if key in self._attrs:
+                self._attrs[key] = value
+                self._notify(key, value)
+            else:
+                raise ValueError("Cannot set {0}".format(key))
+    
+    def __getattr__(self, key):
+        return self._attrs[key]
+    
+    def on_change(self, key, listener):
+        if key in self._attrs:
+            self._listeners[key].append(listener)
+        else:
+            raise ValueError("Cannot listen for {0}".format(key))
+    
+    def _notify(self, key, value):
+        for listener in self._listeners[key]:
+            listener(value)
+
+
+def mammoth_view_model():
+    return view_model(["docx_path"])
+
+
 class MammothViewerGui(object):
     def __init__(self):
-        self._docx_watcher = None
+        self._view_model = mammoth_view_model()
+        self._set_up_watcher()
         self._create_main_window()
+
+    def _set_up_watcher(self):
+        self._view_model.on_change("docx_path", lambda x: self._restart_docx_watcher())
+        self._docx_watcher = None
 
     def close(self):
         self._stop_docx_watcher()
+
+    def _start_docx_watcher(self):
+        if self._docx_watcher is not None:
+            raise ValueError("watcher is already running")
+        
+        def convert_file(docx_path):
+            with open(docx_path, "rb") as docx_file:
+                result = mammoth.convert_to_html(docx_file)
+                glib.idle_add(self._web_view.set_html_fragment, result.value, "")
+                self._message_list.set_messages(result.messages)
+            
+        watched_paths = [self._view_model.docx_path]
+        self._docx_watcher = FileWatcher(
+            paths=watched_paths,
+            func=lambda: convert_file(*watched_paths)
+        )
+        self._docx_watcher.trigger()
+        self._docx_watcher.start()
 
     def _stop_docx_watcher(self):
         if self._docx_watcher is not None:
             self._docx_watcher.stop()
             self._docx_watcher.join()
             self._docx_watcher = None
+
+    def _restart_docx_watcher(self):
+        self._stop_docx_watcher()
+        self._start_docx_watcher()
         
     def _create_main_window(self):
         self._main_window = window = gtk.Window(gtk.WINDOW_TOPLEVEL)
@@ -83,11 +149,14 @@ class MammothViewerGui(object):
 
 
     def _create_docx_path_display(self):
-        self._docx_path_display = gtk.Entry()
-        self._docx_path_display.set_property("editable", False)
-        self._docx_path_display.unset_flags(gtk.CAN_FOCUS)
-        self._docx_path_display.set_has_frame(False)
-        return self._docx_path_display
+        docx_path_display = gtk.Entry()
+        docx_path_display.set_property("editable", False)
+        docx_path_display.unset_flags(gtk.CAN_FOCUS)
+        docx_path_display.set_has_frame(False)
+        
+        self._view_model.on_change("docx_path", docx_path_display.set_text)
+        
+        return docx_path_display
 
 
     def _create_docx_path_updater(self):
@@ -102,19 +171,7 @@ class MammothViewerGui(object):
             self._update_docx_path(path)
 
     def _update_docx_path(self, path):
-        self._docx_path_display.set_text(path)
-        self._stop_docx_watcher()
-        
-        def convert_file():
-            with open(path, "rb") as docx_file:
-                result = mammoth.convert_to_html(docx_file)
-                glib.idle_add(self._web_view.set_html_fragment, result.value, "")
-                self._message_list.set_messages(result.messages)
-            
-        convert_file()
-        self._docx_watcher = FileWatcher([path], convert_file)
-        self._docx_watcher.start()
-
+        self._view_model.docx_path = path
 
     def _create_messages_display(self):
         self._message_list = MessageList()

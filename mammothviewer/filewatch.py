@@ -22,6 +22,9 @@ class FileWatcher(object):
     
     def join(self):
         self._thread.join()
+    
+    def trigger(self):
+        self._func()
         
     def _watch(self):
         while not self._shutdown:
