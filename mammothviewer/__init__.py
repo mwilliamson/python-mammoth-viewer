@@ -5,6 +5,8 @@ import webkit
 import mammoth
 
 from .filewatch import FileWatcher
+from .widgets.filechooser import open_file_chooser
+
 
 _DEFAULT_WIDTH = 600
 _PADDING = 5
@@ -117,25 +119,9 @@ class MammothViewerGui(object):
 
 
     def _choose_docx_path(self, widget):
-        path = self._ask_user_for_docx_path()
+        path = open_file_chooser(parent=self._main_window)
         if path is not None:
             self._update_docx_path(path)
-
-
-    def _ask_user_for_docx_path(self):
-        chooser = gtk.FileChooserDialog(
-            title=None,
-            parent=self._main_window,
-            action=gtk.FILE_CHOOSER_ACTION_OPEN,
-            buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_OPEN, gtk.RESPONSE_OK)
-        )
-        try:
-            response = chooser.run()
-            if response == gtk.RESPONSE_OK:
-                return chooser.get_filename()
-        finally:
-            chooser.destroy()
-    
 
     def _update_docx_path(self, path):
         self._docx_path_display.set_text(path)
@@ -176,6 +162,4 @@ class MammothViewerGui(object):
         
     def _create_web_view(self):
         self._web_view = HtmlDisplay()
-        return self._web_view
-            
-
+        return self._web_view  

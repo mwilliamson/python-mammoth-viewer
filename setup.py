@@ -24,7 +24,7 @@ setup(
     author='Michael Williamson',
     author_email='mike@zwobble.org',
     url='http://github.com/mwilliamson/python-mammoth-viewer',
-    packages=['mammothviewer'],
+    packages=['mammothviewer', 'mammothviewer.widgets'],
     scripts=["scripts/mammoth-viewer"],
     keywords="docx word office clean html gui",
     install_requires=_install_requires,
