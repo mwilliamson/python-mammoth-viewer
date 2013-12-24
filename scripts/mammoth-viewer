@@ -1,0 +1,11 @@
+#!/usr/bin/env python
+
+import mammothviewer
+
+
+def main():
+    mammothviewer.start()
+
+
+if __name__ == "__main__":
+    main()
