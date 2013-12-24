@@ -4,7 +4,7 @@ Convert Word documents to simple and clean HTML in (nearly) real-time with a GUI
 
 ## Installation
 
-pip install mammoth-viewer
+    pip install mammoth-viewer
 
 ## Usage
 
