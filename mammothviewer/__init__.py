@@ -56,7 +56,7 @@ class ViewModel(object):
 
 
 def mammoth_view_model():
-    return view_model(["docx_path", "html", "messages"])
+    return view_model(["docx_path", "styles_path", "html", "messages"])
 
 
 class MammothViewerGui(object):
@@ -66,7 +66,11 @@ class MammothViewerGui(object):
         self._create_main_window()
 
     def _set_up_watcher(self):
-        self._view_model.on_change("docx_path", lambda x: self._restart_docx_watcher())
+        for attr_name in ["docx_path", "styles_path"]:
+            self._view_model.on_change(
+                attr_name,
+                lambda x: self._restart_docx_watcher()
+            )
         self._docx_watcher = None
 
     def close(self):
@@ -76,15 +80,21 @@ class MammothViewerGui(object):
         if self._docx_watcher is not None:
             raise ValueError("watcher is already running")
         
-        def convert_file(docx_path):
+        def convert_file(docx_path, styles_path):
+            if styles_path is not None:
+                with open(styles_path) as styles_file:
+                    styles = styles_file.read()
+            else:
+                styles = None
+            
             with open(docx_path, "rb") as docx_file:
-                result = mammoth.convert_to_html(docx_file)
+                result = mammoth.convert_to_html(docx_file, styles=styles)
                 self._view_model.html = result.value
                 self._view_model.messages = result.messages
             
-        watched_paths = [self._view_model.docx_path]
+        watched_paths = [self._view_model.docx_path, self._view_model.styles_path]
         self._docx_watcher = FileWatcher(
-            paths=watched_paths,
+            paths=filter(None, watched_paths),
             func=lambda: convert_file(*watched_paths)
         )
         self._docx_watcher.trigger()
@@ -115,11 +125,25 @@ class MammothViewerGui(object):
         
 
     def _create_controls(self):
-        controls = self._create_docx_selection_controls()
         box = gtk.VBox()
         
-        box.pack_start(self._create_heading(".docx file"), padding=_PADDING, fill=False, expand=False)
-        box.pack_start(controls, padding=_PADDING, fill=False, expand=False)
+        box.pack_start(
+            self._create_heading(".docx file"),
+            padding=_PADDING, fill=False, expand=False
+        )
+        box.pack_start(
+            self._create_docx_selection_controls(),
+            padding=_PADDING, fill=False, expand=False
+        )
+        
+        box.pack_start(
+            self._create_heading("Styles file"),
+            padding=_PADDING, fill=False, expand=False
+        )
+        box.pack_start(
+            self._create_styles_selection_controls(),
+            padding=_PADDING, fill=False, expand=False
+        )
         
         box.pack_start(self._create_heading("Messages"), padding=_PADDING, fill=False, expand=False)
         box.pack_start(self._create_messages_display(), padding=_PADDING)
@@ -138,40 +162,42 @@ class MammothViewerGui(object):
         heading.set_markup("<b>{0}</b>".format(text))
         return heading
 
-
     def _create_docx_selection_controls(self):
+        return self._create_file_selection_controls("docx_path", "Select .docx file")
+        
+    def _create_styles_selection_controls(self):
+        return self._create_file_selection_controls("styles_path", "Select styles file")
+        
+    def _create_file_selection_controls(self, attr_name, label):
         table = gtk.Table(rows=1, columns=2)
         table.set_col_spacings(_PADDING)
         table.set_row_spacings(_PADDING)
-        table.attach(self._create_docx_path_display(), left_attach=0, right_attach=1, top_attach=0, bottom_attach=1)
-        table.attach(self._create_docx_path_updater(), left_attach=1, right_attach=2, top_attach=0, bottom_attach=1, xoptions=0, yoptions=0)
+        table.attach(self._create_path_display(attr_name), left_attach=0, right_attach=1, top_attach=0, bottom_attach=1)
+        table.attach(self._create_path_updater(attr_name, label), left_attach=1, right_attach=2, top_attach=0, bottom_attach=1, xoptions=0, yoptions=0)
         return table
 
 
-    def _create_docx_path_display(self):
+    def _create_path_display(self, attr_name):
         docx_path_display = gtk.Entry()
         docx_path_display.set_property("editable", False)
         docx_path_display.unset_flags(gtk.CAN_FOCUS)
         docx_path_display.set_has_frame(False)
         
-        self._view_model.on_change("docx_path", docx_path_display.set_text)
+        self._view_model.on_change(attr_name, docx_path_display.set_text)
         
         return docx_path_display
 
 
-    def _create_docx_path_updater(self):
-        button = gtk.Button(label="Select .docx file")
-        button.connect("clicked", self._choose_docx_path)
+    def _create_path_updater(self, attr_name, label):
+        button = gtk.Button(label=label)
+        button.connect("clicked", lambda widget: self._choose_path(attr_name))
         return button
 
 
-    def _choose_docx_path(self, widget):
+    def _choose_path(self, attr_name):
         path = open_file_chooser(parent=self._main_window)
         if path is not None:
-            self._update_docx_path(path)
-
-    def _update_docx_path(self, path):
-        self._view_model.docx_path = path
+            setattr(self._view_model, attr_name, path)
 
     def _create_messages_display(self):
         message_list = MessageList()
