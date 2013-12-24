@@ -4,6 +4,7 @@ import threading
 
 import gobject
 import gtk 
+import glib
 import webkit
 import mammoth
 
@@ -121,7 +122,7 @@ class MammothViewerGui(object):
         def convert_file():
             with open(path, "rb") as docx_file:
                 result = mammoth.convert_to_html(docx_file)
-                self._web_view.load_string(result.value, "text/html", "utf-8", "")
+                glib.idle_add(self._web_view.load_string, result.value, "text/html", "utf-8", "")
                 self._update_messages(result.messages)
             
         convert_file()
