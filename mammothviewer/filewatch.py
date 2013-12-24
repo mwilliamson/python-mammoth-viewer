@@ -6,11 +6,11 @@ import time
 class FileWatcher(object):
     _POLL_INTERVAL = 1
     
-    def __init__(self, path, func):
-        self._path = path
+    def __init__(self, paths, func):
+        self._paths = paths
         self._func = func
         self._thread = None
-        self._last_modified_time = os.stat(self._path).st_mtime
+        self._last_modified_times = self._generate_last_modified_times()
         self._shutdown = False
     
     def start(self):
@@ -25,8 +25,14 @@ class FileWatcher(object):
         
     def _watch(self):
         while not self._shutdown:
-            modified_time = os.stat(self._path).st_mtime
-            if modified_time > self._last_modified_time:
-                self._last_modified_time = modified_time
+            modified_times = self._generate_last_modified_times()
+            if modified_times != self._last_modified_times:
+                self._last_modified_times = modified_times
                 self._func()
             time.sleep(self._POLL_INTERVAL)
+    
+    def _generate_last_modified_times(self):
+        return dict(
+            (path, os.stat(path).st_mtime)
+            for path in self._paths
+        )

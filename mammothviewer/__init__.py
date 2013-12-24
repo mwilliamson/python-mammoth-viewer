@@ -135,7 +135,7 @@ class MammothViewerGui(object):
                 self._message_list.set_messages(result.messages)
             
         convert_file()
-        self._docx_watcher = FileWatcher(path, convert_file)
+        self._docx_watcher = FileWatcher([path], convert_file)
         self._docx_watcher.start()
 
 
