@@ -56,7 +56,7 @@ class ViewModel(object):
 
 
 def mammoth_view_model():
-    return view_model(["docx_path"])
+    return view_model(["docx_path", "messages"])
 
 
 class MammothViewerGui(object):
@@ -80,7 +80,7 @@ class MammothViewerGui(object):
             with open(docx_path, "rb") as docx_file:
                 result = mammoth.convert_to_html(docx_file)
                 glib.idle_add(self._web_view.set_html_fragment, result.value, "")
-                self._message_list.set_messages(result.messages)
+                self._view_model.messages = result.messages
             
         watched_paths = [self._view_model.docx_path]
         self._docx_watcher = FileWatcher(
@@ -174,8 +174,9 @@ class MammothViewerGui(object):
         self._view_model.docx_path = path
 
     def _create_messages_display(self):
-        self._message_list = MessageList()
-        return self._message_list
+        message_list = MessageList()
+        self._view_model.on_change("messages", message_list.set_messages)
+        return message_list
         
     def _create_web_view(self):
         self._web_view = HtmlDisplay()
