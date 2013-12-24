@@ -117,7 +117,9 @@ class MammothViewerGui(object):
 
 
     def _choose_docx_path(self, widget):
-        self._update_docx_path(self._ask_user_for_docx_path())
+        path = self._ask_user_for_docx_path()
+        if path is not None:
+            self._update_docx_path(path)
 
 
     def _ask_user_for_docx_path(self):
