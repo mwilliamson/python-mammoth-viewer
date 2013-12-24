@@ -2,7 +2,7 @@ import gtk
 import glib
 import mammoth
 
-from .viewmodels import view_model
+from .viewmodels import create_view_model
 from .filewatch import FileWatcher
 from .widgets.filechooser import open_file_chooser
 from .widgets.messagelist import MessageList
@@ -14,37 +14,38 @@ _PADDING = 5
 
 
 def start():
-    gui = MammothViewerGui()
-    try:
+    view_model = mammoth_view_model()
+    with MammothFilesWatcher(view_model) as watcher:
+        gui = MammothViewerGui(view_model)
         gtk.main()
-    finally:
-        gui.close()
 
 
 
 def mammoth_view_model():
-    return view_model(["docx_path", "styles_path", "html", "messages"])
+    return create_view_model(["docx_path", "styles_path", "html", "messages"])
 
 
-class MammothViewerGui(object):
-    def __init__(self):
-        self._view_model = mammoth_view_model()
-        self._set_up_watcher()
-        self._create_main_window()
-
-    def _set_up_watcher(self):
+class MammothFilesWatcher(object):
+    def __init__(self, view_model):
+        self._watcher = None
+        self._view_model = view_model
         for attr_name in ["docx_path", "styles_path"]:
-            self._view_model.on_change(
+            view_model.on_change(
                 attr_name,
-                lambda x: self._restart_docx_watcher()
+                lambda x: self._restart_watcher()
             )
-        self._docx_watcher = None
-
+    
     def close(self):
-        self._stop_docx_watcher()
+        self._stop_watcher()
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, *args):
+        self.close()
 
-    def _start_docx_watcher(self):
-        if self._docx_watcher is not None:
+    def _start_watcher(self):
+        if self._watcher is not None:
             raise ValueError("watcher is already running")
         
         def convert_file(docx_path, styles_path):
@@ -60,22 +61,28 @@ class MammothViewerGui(object):
                 self._view_model.messages = result.messages
             
         watched_paths = [self._view_model.docx_path, self._view_model.styles_path]
-        self._docx_watcher = FileWatcher(
+        self._watcher = FileWatcher(
             paths=filter(None, watched_paths),
             func=lambda: convert_file(*watched_paths)
         )
-        self._docx_watcher.trigger()
-        self._docx_watcher.start()
+        self._watcher.trigger()
+        self._watcher.start()
 
-    def _stop_docx_watcher(self):
-        if self._docx_watcher is not None:
-            self._docx_watcher.stop()
-            self._docx_watcher.join()
-            self._docx_watcher = None
+    def _stop_watcher(self):
+        if self._watcher is not None:
+            self._watcher.stop()
+            self._watcher.join()
+            self._watcher = None
 
-    def _restart_docx_watcher(self):
-        self._stop_docx_watcher()
-        self._start_docx_watcher()
+    def _restart_watcher(self):
+        self._stop_watcher()
+        self._start_watcher()
+
+
+class MammothViewerGui(object):
+    def __init__(self, view_model):
+        self._view_model = view_model
+        self._create_main_window()
         
     def _create_main_window(self):
         self._main_window = window = gtk.Window(gtk.WINDOW_TOPLEVEL)

@@ -1,7 +1,7 @@
 import collections
 
 
-def view_model(attr_names):
+def create_view_model(attr_names):
     return ViewModel(attr_names)
 
 
