@@ -18,6 +18,28 @@ def start():
         gui.close()
 
 
+class HtmlDisplay(gtk.ScrolledWindow):
+    _TEMPLATE = """<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf8">
+  </head>
+  <body>
+    {0}
+  </body>
+</html>
+    """
+    def __init__(self):
+        gtk.ScrolledWindow.__init__(self)
+        
+        self._web_view = webkit.WebView()
+        self.add(self._web_view)
+    
+    def set_html_fragment(self, fragment, base_uri):
+        full_html = self._TEMPLATE.format(fragment)
+        self._web_view.load_string(full_html, "text/html", "utf-8", base_uri)
+
+
 class MammothViewerGui(object):
     def __init__(self):
         self._docx_watcher = None
@@ -120,7 +142,7 @@ class MammothViewerGui(object):
         def convert_file():
             with open(path, "rb") as docx_file:
                 result = mammoth.convert_to_html(docx_file)
-                glib.idle_add(self._web_view.load_string, result.value, "text/html", "utf-8", "")
+                glib.idle_add(self._web_view.set_html_fragment, result.value, "")
                 self._update_messages(result.messages)
             
         convert_file()
@@ -150,11 +172,8 @@ class MammothViewerGui(object):
         for message in messages:
             self._messages_display.append([message.type, message.message])
         
-
     def _create_web_view(self):
-        view = webkit.WebView()
-        sw = gtk.ScrolledWindow() 
-        sw.add(view) 
-        self._web_view = view
-        return sw
+        self._web_view = HtmlDisplay()
+        return self._web_view
             
+
