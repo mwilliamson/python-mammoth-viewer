@@ -6,6 +6,7 @@ import mammoth
 
 from .filewatch import FileWatcher
 from .widgets.filechooser import open_file_chooser
+from .widgets.messagelist import MessageList
 
 
 _DEFAULT_WIDTH = 600
@@ -131,7 +132,7 @@ class MammothViewerGui(object):
             with open(path, "rb") as docx_file:
                 result = mammoth.convert_to_html(docx_file)
                 glib.idle_add(self._web_view.set_html_fragment, result.value, "")
-                self._update_messages(result.messages)
+                self._message_list.set_messages(result.messages)
             
         convert_file()
         self._docx_watcher = FileWatcher(path, convert_file)
@@ -139,26 +140,8 @@ class MammothViewerGui(object):
 
 
     def _create_messages_display(self):
-        display = gtk.ScrolledWindow()
-        display.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        
-        message_list = gtk.ListStore(gobject.TYPE_STRING, gobject.TYPE_STRING)
-        message_list_view = gtk.TreeView(message_list)
-        
-        message_list_view.append_column(gtk.TreeViewColumn("Severity", gtk.CellRendererText(), text=0))
-        message_list_view.append_column(gtk.TreeViewColumn("Message", gtk.CellRendererText(), text=1))
-        
-        display.add_with_viewport(message_list_view)
-        
-        self._messages_display = message_list
-        
-        return display
-    
-    
-    def _update_messages(self, messages):
-        self._messages_display.clear()
-        for message in messages:
-            self._messages_display.append([message.type, message.message])
+        self._message_list = MessageList()
+        return self._message_list
         
     def _create_web_view(self):
         self._web_view = HtmlDisplay()
